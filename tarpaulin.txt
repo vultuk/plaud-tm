@@ -1,0 +1,80 @@
+[2m2025-11-24T15:32:21.947772Z[0m [32m INFO[0m [2mcargo_tarpaulin::config[0m[2m:[0m Creating config
+[2m2025-11-24T15:32:22.012667Z[0m [32m INFO[0m [2mcargo_tarpaulin[0m[2m:[0m Running Tarpaulin
+[2m2025-11-24T15:32:22.012682Z[0m [32m INFO[0m [2mcargo_tarpaulin[0m[2m:[0m Building project
+[2m2025-11-24T15:32:22.012727Z[0m [32m INFO[0m [2mcargo_tarpaulin::cargo[0m[2m:[0m Cleaning project
+[2m2025-11-24T15:32:28.489568Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/vultuk/Development/vultuk/plaud-timestamp/target/debug/deps/plaud_timestamp-52391a0cffed42e3
+[2m2025-11-24T15:32:28.489614Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 7 tests
+test merge::tests::sorts_flat_files ... ok
+test merge::tests::sorts_nested_files ... ok
+test transcript::tests::adjusts_timestamp_lines_and_preserves_non_timestamp_text ... ok
+test transcript::tests::preserves_trailing_newline_presence ... ok
+test transcript::tests::reports_error_when_no_timestamp_lines_exist ... ok
+test update::tests::builds_flat_output_path ... ok
+test update::tests::builds_nested_output_path ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[2m2025-11-24T15:32:28.752154Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/plaud_timestamp-52391a0cffed42e3
+[2m2025-11-24T15:32:28.752177Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/plaud_timestamp-52391a0cffed42e3_15285099967560389234_0-11362.profraw
+[2m2025-11-24T15:32:28.752183Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-24T15:32:28.760357Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-24T15:32:28.801521Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/vultuk/Development/vultuk/plaud-timestamp/target/debug/deps/plaud_timestamp-996440efc5db5f7c
+[2m2025-11-24T15:32:28.801702Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[2m2025-11-24T15:32:29.036560Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/plaud_timestamp-996440efc5db5f7c
+[2m2025-11-24T15:32:29.036579Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/plaud_timestamp-996440efc5db5f7c_18405264389535330955_0-11379.profraw
+[2m2025-11-24T15:32:29.036587Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-24T15:32:29.036671Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-24T15:32:29.048724Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/vultuk/Development/vultuk/plaud-timestamp/target/debug/deps/merge_cli-82dec6d7fcc362bb
+[2m2025-11-24T15:32:29.048781Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 3 tests
+test merge_respects_custom_output_argument ... ok
+test merge_with_explicit_list_outputs_sorted_paths ... ok
+test merge_with_glob_pattern_expands_and_orders ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+[2m2025-11-24T15:32:29.585745Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/merge_cli-82dec6d7fcc362bb
+[2m2025-11-24T15:32:29.585755Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/merge_cli-82dec6d7fcc362bb_2852038532529648448_0-11382.profraw
+[2m2025-11-24T15:32:29.585759Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/merge_cli-82dec6d7fcc362bb_2852038532529648448_0-11383.profraw
+[2m2025-11-24T15:32:29.585769Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/merge_cli-82dec6d7fcc362bb_2852038532529648448_0-11384.profraw
+[2m2025-11-24T15:32:29.585771Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/merge_cli-82dec6d7fcc362bb_17335501608101203057_0-11381.profraw
+[2m2025-11-24T15:32:29.585774Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-24T15:32:29.599802Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-24T15:32:29.629946Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/vultuk/Development/vultuk/plaud-timestamp/target/debug/deps/update_cli-31e97ac536e67cfd
+[2m2025-11-24T15:32:29.630009Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 2 tests
+test supports_flat_output ... ok
+test writes_nested_output_by_default ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+[2m2025-11-24T15:32:29.888039Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/update_cli-31e97ac536e67cfd
+[2m2025-11-24T15:32:29.888047Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/update_cli-31e97ac536e67cfd_14756343761803203744_0-11385.profraw
+[2m2025-11-24T15:32:29.888050Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/update_cli-31e97ac536e67cfd_2852038532529648448_0-11387.profraw
+[2m2025-11-24T15:32:29.888052Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/update_cli-31e97ac536e67cfd_2852038532529648448_0-11386.profraw
+[2m2025-11-24T15:32:29.888054Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-24T15:32:29.899090Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-24T15:32:29.928978Z[0m [32m INFO[0m [2mcargo_tarpaulin::report[0m[2m:[0m Coverage Results:
+|| Uncovered Lines:
+|| src/lib.rs: 18-21, 27-30, 60-62, 64
+|| src/main.rs: 3-4
+|| src/merge.rs: 62-63, 72, 93, 129, 170, 187, 220, 245, 262, 271
+|| src/transcript.rs: 16-17, 19
+|| Tested/Total Lines:
+|| src/cli.rs: 3/3 +0.00%
+|| src/lib.rs: 19/31 +0.00%
+|| src/main.rs: 2/4 +0.00%
+|| src/merge.rs: 128/139 +0.00%
+|| src/transcript.rs: 31/34 +0.00%
+|| src/update.rs: 38/38 +0.00%
+|| 
+88.76% coverage, 221/249 lines covered, +0.00% change in coverage

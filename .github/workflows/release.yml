@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    permissions:
+      contents: read
+      actions: write
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact: plaud-tm-aarch64-apple-darwin
+            binary: plaud-tm
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            artifact: plaud-tm-x86_64-apple-darwin
+            binary: plaud-tm
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: plaud-tm-x86_64-unknown-linux-gnu
+            binary: plaud-tm
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact: plaud-tm-x86_64-pc-windows-msvc
+            binary: plaud-tm.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Stage artifact
+        run: |
+          mkdir -p artifacts
+          cp target/${{ matrix.target }}/release/${{ matrix.binary }} artifacts/${{ matrix.artifact }}
+        shell: bash
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: artifacts/${{ matrix.artifact }}
+          if-no-files-found: error
+
+  package:
+    name: Publish npm package
+    needs: build
+    permissions:
+      contents: read
+      actions: read
+    runs-on: ubuntu-latest
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: plaud-tm-*
+          path: bin
+          merge-multiple: true
+
+      - name: Prepare binaries
+        run: |
+          mv bin/plaud-tm-aarch64-apple-darwin bin/plaud-tm-darwin-arm64
+          mv bin/plaud-tm-x86_64-apple-darwin bin/plaud-tm-darwin-x64
+          mv bin/plaud-tm-x86_64-unknown-linux-gnu bin/plaud-tm-linux-x64
+          mv bin/plaud-tm-x86_64-pc-windows-msvc bin/plaud-tm-win32-x64.exe
+          chmod +x bin/plaud-tm-darwin-arm64 bin/plaud-tm-darwin-x64 bin/plaud-tm-linux-x64
+        shell: bash
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          always-auth: true
+
+      - name: Set package version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "$VERSION" ]; then
+            echo "Unable to derive version from tag ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+          node -e "const fs=require('fs');const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));pkg.version='${VERSION}';fs.writeFileSync('package.json', JSON.stringify(pkg,null,2)+'\\n');"
+        shell: bash
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Publish to npm
+        run: npm publish --access public
