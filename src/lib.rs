@@ -8,59 +8,30 @@ use cli::{Cli, Commands};
 use merge::{MergeRequest, MergeService};
 use update::{UpdateRequest, UpdateService};
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum AppError {
-    Update(update::UpdateError),
-    Merge(merge::MergeError),
-}
-
-impl std::fmt::Display for AppError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AppError::Update(err) => write!(f, "{err}"),
-            AppError::Merge(err) => write!(f, "{err}"),
-        }
-    }
-}
-
-impl std::error::Error for AppError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            AppError::Update(err) => Some(err),
-            AppError::Merge(err) => Some(err),
-        }
-    }
+    #[error("{0}")]
+    Update(#[from] update::UpdateError),
+    #[error("{0}")]
+    Merge(#[from] merge::MergeError),
 }
 
 pub fn run() -> Result<(), AppError> {
     let cli = Cli::parse();
     match cli.command {
-        Some(Commands::Update(args)) => {
+        Commands::Update(args) => {
             let request = UpdateRequest::from(args);
-            UpdateService
-                .execute(&request)
-                .map(|outcome| {
-                    println!("Wrote {}", outcome.output_path.display());
-                })
-                .map_err(AppError::Update)
+            let outcome = UpdateService.execute(&request)?;
+            println!("Wrote {}", outcome.output_path.display());
+            Ok(())
         }
-        Some(Commands::Merge(args)) => {
+        Commands::Merge(args) => {
             let request = MergeRequest::from(args);
-            MergeService
-                .execute(&request)
-                .map(|outcome| {
-                    for file in &outcome.files {
-                        println!("{}", file.display());
-                    }
-                    println!("Merged into {}", outcome.output_path.display());
-                })
-                .map_err(AppError::Merge)
-        }
-        None => {
-            match cli.name {
-                Some(name) => println!("Hello, {}!", name),
-                None => println!("Hello, world!"),
+            let outcome = MergeService.execute(&request)?;
+            for file in &outcome.files {
+                println!("{}", file.display());
             }
+            println!("Merged into {}", outcome.output_path.display());
             Ok(())
         }
     }

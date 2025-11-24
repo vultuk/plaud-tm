@@ -1,10 +1,10 @@
-use chrono::{Duration, NaiveDate, NaiveTime, Timelike};
+use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TranscriptUpdate {
     pub body: String,
-    pub first_timestamp: NaiveTime,
-    pub last_timestamp: NaiveTime,
+    pub first_timestamp: NaiveDateTime,
+    pub last_timestamp: NaiveDateTime,
 }
 
 #[derive(Debug)]
@@ -33,8 +33,8 @@ impl TranscriptProcessor {
         effective_date: NaiveDate,
     ) -> Result<TranscriptUpdate, TranscriptError> {
         let mut adjusted_lines = Vec::new();
-        let mut first_timestamp: Option<NaiveTime> = None;
-        let mut last_timestamp: Option<NaiveTime> = None;
+        let mut first_timestamp: Option<NaiveDateTime> = None;
+        let mut last_timestamp: Option<NaiveDateTime> = None;
 
         for line in contents.lines() {
             if let Some((relative_time, rest)) = parse_timestamp_line(line) {
@@ -43,7 +43,7 @@ impl TranscriptProcessor {
                     first_timestamp = Some(adjusted);
                 }
                 last_timestamp = Some(adjusted);
-                adjusted_lines.push(format!("{}{}", adjusted.format("%H:%M:%S"), rest));
+                adjusted_lines.push(format!("{}{}", adjusted.time().format("%H:%M:%S"), rest));
             } else {
                 adjusted_lines.push(line.to_string());
             }
@@ -77,10 +77,10 @@ fn parse_timestamp_line(line: &str) -> Option<(NaiveTime, &str)> {
     Some((time, rest))
 }
 
-fn apply_offset(start: NaiveTime, effective_date: NaiveDate, relative: NaiveTime) -> NaiveTime {
+fn apply_offset(start: NaiveTime, effective_date: NaiveDate, relative: NaiveTime) -> NaiveDateTime {
     let base = effective_date.and_time(start);
     let delta = Duration::seconds(relative.num_seconds_from_midnight() as i64);
-    (base + delta).time()
+    base + delta
 }
 
 #[cfg(test)]
@@ -114,11 +114,11 @@ Line without timestamp
 "
         );
         assert_eq!(
-            result.first_timestamp.format("%H:%M:%S").to_string(),
+            result.first_timestamp.time().format("%H:%M:%S").to_string(),
             "18:01:13"
         );
         assert_eq!(
-            result.last_timestamp.format("%H:%M:%S").to_string(),
+            result.last_timestamp.time().format("%H:%M:%S").to_string(),
             "18:01:15"
         );
     }
@@ -132,7 +132,7 @@ Line without timestamp
             NaiveDate::from_ymd_opt(2024, 12, 25).unwrap(),
         )
         .unwrap_err();
-        matches!(err, TranscriptError::NoTimestamps);
+        assert!(matches!(err, TranscriptError::NoTimestamps));
     }
 
     #[test]
@@ -167,5 +167,32 @@ Line without timestamp
         assert!(result
             .body
             .starts_with("Mindy-já. I love you.\n18:01:13 Speaker 1"));
+    }
+
+    #[test]
+    fn handles_midnight_overflow() {
+        let input = "00:00:01 Start\n01:00:00 One hour later\n";
+        let late_start = NaiveTime::from_hms_opt(23, 30, 0).unwrap();
+        let date = NaiveDate::from_ymd_opt(2024, 12, 25).unwrap();
+        let result = TranscriptProcessor::adjust(input, late_start, date).unwrap();
+
+        // First timestamp: 23:30:00 + 00:00:01 = 23:30:01 (same day)
+        assert_eq!(result.first_timestamp.date(), date);
+        assert_eq!(
+            result.first_timestamp.time().format("%H:%M:%S").to_string(),
+            "23:30:01"
+        );
+
+        // Last timestamp: 23:30:00 + 01:00:00 = 00:30:00 (next day)
+        let next_day = NaiveDate::from_ymd_opt(2024, 12, 26).unwrap();
+        assert_eq!(result.last_timestamp.date(), next_day);
+        assert_eq!(
+            result.last_timestamp.time().format("%H:%M:%S").to_string(),
+            "00:30:00"
+        );
+
+        // The body should have the correct times
+        assert!(result.body.contains("23:30:01 Start"));
+        assert!(result.body.contains("00:30:00 One hour later"));
     }
 }

@@ -11,6 +11,7 @@ function resolveBinary() {
   if (platform === "darwin" && arch === "arm64") return "plaud-tm-darwin-arm64";
   if (platform === "darwin" && arch === "x64") return "plaud-tm-darwin-x64";
   if (platform === "linux" && arch === "x64") return "plaud-tm-linux-x64";
+  if (platform === "linux" && arch === "arm64") return "plaud-tm-linux-arm64";
   if (platform === "win32" && arch === "x64") return "plaud-tm-win32-x64.exe";
 
   return null;

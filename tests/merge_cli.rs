@@ -23,7 +23,7 @@ fn merge_with_explicit_list_outputs_sorted_paths() {
     let early = temp.child("2025/01/27/061901-111901.txt");
     let late = temp.child("2025/01/27/112256-162256.txt");
 
-    let mut cmd = cargo_bin_cmd!("plaud-timestamp");
+    let mut cmd = cargo_bin_cmd!("plaud-tm");
     cmd.current_dir(temp.path());
     cmd.args([
         "merge",
@@ -57,7 +57,7 @@ fn merge_with_glob_pattern_expands_and_orders() {
     let early = temp.child("2025/01/27/061901-111901.txt");
     let late = temp.child("2025/01/27/112256-162256.txt");
 
-    let mut cmd = cargo_bin_cmd!("plaud-timestamp");
+    let mut cmd = cargo_bin_cmd!("plaud-tm");
     cmd.current_dir(temp.path());
     cmd.args(["merge", "2025/01/27/*"]);
 
@@ -85,7 +85,7 @@ fn merge_respects_custom_output_argument() {
     let temp = assert_fs::TempDir::new().unwrap();
     setup_files(&temp);
 
-    let mut cmd = cargo_bin_cmd!("plaud-timestamp");
+    let mut cmd = cargo_bin_cmd!("plaud-tm");
     cmd.current_dir(temp.path());
     cmd.args([
         "merge",
