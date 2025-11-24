@@ -1,4 +1,5 @@
 use crate::cli::UpdateArgs;
+use crate::constants::{DATE_FORMAT_COMPACT, DAY_FORMAT, MAX_FILE_SIZE, MONTH_FORMAT, YEAR_FORMAT};
 use crate::transcript::{TranscriptError, TranscriptProcessor};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 use std::env;
@@ -33,6 +34,8 @@ impl From<UpdateArgs> for UpdateRequest {
 #[derive(Debug)]
 pub struct UpdateOutcome {
     pub output_path: PathBuf,
+    /// Warning: timestamps in the input were not in chronological order
+    pub has_out_of_order_timestamps: bool,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -41,28 +44,35 @@ pub enum UpdateError {
     Transcript(#[from] TranscriptError),
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("File too large: {0} bytes exceeds maximum of {1} bytes")]
+    FileTooLarge(u64, u64),
 }
 
-#[derive(Default)]
-pub struct UpdateService;
-
-impl UpdateService {
-    pub fn execute(&self, request: &UpdateRequest) -> Result<UpdateOutcome, UpdateError> {
-        let contents = fs::read_to_string(&request.input_file)?;
-        let transcript = TranscriptProcessor::adjust(&contents, request.start_time, request.date)?;
-        let output_path = resolve_output_path(
-            request,
-            transcript.first_timestamp,
-            transcript.last_timestamp,
-        )?;
-        if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        // Atomic write: write to temp file then rename
-        atomic_write(&output_path, transcript.body.as_bytes())?;
-        Ok(UpdateOutcome { output_path })
+/// Execute the update operation on a transcript file.
+pub fn execute(request: &UpdateRequest) -> Result<UpdateOutcome, UpdateError> {
+    // Check file size before reading to prevent OOM
+    let metadata = fs::metadata(&request.input_file)?;
+    if metadata.len() > MAX_FILE_SIZE {
+        return Err(UpdateError::FileTooLarge(metadata.len(), MAX_FILE_SIZE));
     }
+
+    let contents = fs::read_to_string(&request.input_file)?;
+    let transcript = TranscriptProcessor::adjust(&contents, request.start_time, request.date)?;
+    let output_path = resolve_output_path(
+        request,
+        transcript.first_timestamp,
+        transcript.last_timestamp,
+    )?;
+    if let Some(parent) = output_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    // Atomic write: write to temp file then rename
+    atomic_write(&output_path, transcript.body.as_bytes())?;
+    Ok(UpdateOutcome {
+        output_path,
+        has_out_of_order_timestamps: transcript.has_out_of_order_timestamps,
+    })
 }
 
 /// Write content atomically by writing to a temp file and renaming.
@@ -87,7 +97,7 @@ fn resolve_output_path(
     if request.flatten_output {
         let filename = format!(
             "{}_{:02}{:02}{:02}_{:02}{:02}{:02}.txt",
-            effective_date.format("%Y%m%d"),
+            effective_date.format(DATE_FORMAT_COMPACT),
             first.time().hour(),
             first.time().minute(),
             first.time().second(),
@@ -106,9 +116,9 @@ fn resolve_output_path(
             last.time().minute(),
             last.time().second()
         );
-        let date_dir = PathBuf::from(effective_date.format("%Y").to_string())
-            .join(effective_date.format("%m").to_string())
-            .join(effective_date.format("%d").to_string());
+        let date_dir = PathBuf::from(effective_date.format(YEAR_FORMAT).to_string())
+            .join(effective_date.format(MONTH_FORMAT).to_string())
+            .join(effective_date.format(DAY_FORMAT).to_string());
         Ok(request.output_dir.join(date_dir).join(filename))
     }
 }

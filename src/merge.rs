@@ -1,4 +1,5 @@
 use crate::cli::MergeArgs;
+use crate::constants::{DATE_FORMAT_COMPACT, DATE_FORMAT_DASHED, MAX_FILE_SIZE};
 use chrono::{NaiveDate, NaiveTime};
 use glob::{glob, GlobError, PatternError};
 use std::fs;
@@ -49,80 +50,90 @@ pub enum MergeError {
     UndeterminedDate,
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("File too large: {path} ({size} bytes exceeds maximum of {max} bytes)")]
+    FileTooLarge { path: String, size: u64, max: u64 },
 }
 
-#[derive(Default)]
-pub struct MergeService;
+/// Execute the merge operation on transcript files.
+pub fn execute(request: &MergeRequest) -> Result<MergeOutcome, MergeError> {
+    let mut collected = Vec::new();
 
-impl MergeService {
-    pub fn execute(&self, request: &MergeRequest) -> Result<MergeOutcome, MergeError> {
-        let mut collected = Vec::new();
-
-        for pattern in &request.patterns {
-            let mut matches_found = false;
-            let entries = glob(pattern).map_err(|err| MergeError::InvalidGlobPattern {
-                pattern: pattern.clone(),
-                source: err,
-            })?;
-            for entry in entries {
-                let path = entry?;
-                matches_found = true;
-                collected.push(path);
-            }
-
-            if !matches_found {
-                return Err(MergeError::NoMatches(pattern.clone()));
-            }
+    for pattern in &request.patterns {
+        let mut matches_found = false;
+        let entries = glob(pattern).map_err(|err| MergeError::InvalidGlobPattern {
+            pattern: pattern.clone(),
+            source: err,
+        })?;
+        for entry in entries {
+            let path = entry?;
+            matches_found = true;
+            collected.push(path);
         }
 
-        let mut descriptors: Vec<(PathBuf, FileSortKey)> = collected
-            .into_iter()
-            .map(|path| {
-                let key = FileSortKey::from_path(&path)?;
-                Ok((path, key))
-            })
-            .collect::<Result<_, MergeError>>()?;
-
-        descriptors.sort_by(|a, b| a.1.cmp(&b.1));
-
-        let mut ordered = Vec::new();
-        for (path, _) in &descriptors {
-            if ordered
-                .last()
-                .map(|existing: &PathBuf| existing == path)
-                .unwrap_or(false)
-            {
-                continue;
-            }
-            ordered.push(path.clone());
+        if !matches_found {
+            return Err(MergeError::NoMatches(pattern.clone()));
         }
-
-        let output_path = determine_output_path(&ordered, &descriptors, request)?;
-
-        // Canonicalize output path for reliable comparison
-        // If output doesn't exist yet, we'll compare against the intended path
-        let output_canonical = output_path.canonicalize().unwrap_or_else(|_| output_path.clone());
-
-        // Filter out the output path from sources to prevent self-deletion
-        let sources_to_merge: Vec<PathBuf> = ordered
-            .iter()
-            .filter(|p| {
-                let p_canonical = p.canonicalize().unwrap_or_else(|_| (*p).clone());
-                p_canonical != output_canonical
-            })
-            .cloned()
-            .collect();
-
-        write_merged_file(&sources_to_merge, &output_path)?;
-        if !request.no_delete {
-            delete_sources(&sources_to_merge, &output_path)?;
-        }
-
-        Ok(MergeOutcome {
-            files: sources_to_merge,
-            output_path,
-        })
     }
+
+    // Check file sizes before processing to prevent OOM
+    for path in &collected {
+        let metadata = fs::metadata(path)?;
+        if metadata.len() > MAX_FILE_SIZE {
+            return Err(MergeError::FileTooLarge {
+                path: path.display().to_string(),
+                size: metadata.len(),
+                max: MAX_FILE_SIZE,
+            });
+        }
+    }
+
+    let mut descriptors: Vec<(PathBuf, FileSortKey)> = collected
+        .into_iter()
+        .map(|path| {
+            let key = FileSortKey::from_path(&path)?;
+            Ok((path, key))
+        })
+        .collect::<Result<_, MergeError>>()?;
+
+    descriptors.sort_by(|a, b| a.1.cmp(&b.1));
+
+    let mut ordered = Vec::new();
+    for (path, _) in &descriptors {
+        if ordered
+            .last()
+            .map(|existing: &PathBuf| existing == path)
+            .unwrap_or(false)
+        {
+            continue;
+        }
+        ordered.push(path.clone());
+    }
+
+    let output_path = determine_output_path(&ordered, &descriptors, request)?;
+
+    // Canonicalize output path for reliable comparison
+    // If output doesn't exist yet, we'll compare against the intended path
+    let output_canonical = output_path.canonicalize().unwrap_or_else(|_| output_path.clone());
+
+    // Filter out the output path from sources to prevent self-deletion
+    let sources_to_merge: Vec<PathBuf> = ordered
+        .iter()
+        .filter(|p| {
+            let p_canonical = p.canonicalize().unwrap_or_else(|_| (*p).clone());
+            p_canonical != output_canonical
+        })
+        .cloned()
+        .collect();
+
+    write_merged_file(&sources_to_merge, &output_path)?;
+    if !request.no_delete {
+        delete_sources(&sources_to_merge, &output_path)?;
+    }
+
+    Ok(MergeOutcome {
+        files: sources_to_merge,
+        output_path,
+    })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -212,7 +223,7 @@ impl FileSortKey {
             .next()
             .ok_or_else(|| MergeError::UnrecognizedFilename(path.display().to_string()))?;
 
-        let date = NaiveDate::parse_from_str(date_part, "%Y%m%d")
+        let date = NaiveDate::parse_from_str(date_part, DATE_FORMAT_COMPACT)
             .map_err(|_| MergeError::UnrecognizedFilename(path.display().to_string()))?;
         let start = parse_time_digits(start_part)
             .ok_or_else(|| MergeError::UnrecognizedFilename(path.display().to_string()))?;
@@ -242,7 +253,7 @@ fn extract_nested_day_directory(path: &Path) -> Option<(PathBuf, NaiveDate)> {
     let day_dir = path.parent()?;
     let day_name = day_dir.file_name()?.to_str()?;
 
-    if let Ok(date) = NaiveDate::parse_from_str(day_name, "%Y-%m-%d") {
+    if let Ok(date) = NaiveDate::parse_from_str(day_name, DATE_FORMAT_DASHED) {
         return Some((day_dir.to_path_buf(), date));
     }
 
@@ -261,7 +272,7 @@ fn extract_nested_day_directory(path: &Path) -> Option<(PathBuf, NaiveDate)> {
             .all(|c| c.is_ascii_digit())
     {
         if let Ok(date) =
-            NaiveDate::parse_from_str(&format!("{year_name}-{month_name}-{day_name}"), "%Y-%m-%d")
+            NaiveDate::parse_from_str(&format!("{year_name}-{month_name}-{day_name}"), DATE_FORMAT_DASHED)
         {
             return Some((day_dir.to_path_buf(), date));
         }
@@ -293,7 +304,7 @@ fn determine_output_path(
     }
 
     if let Some((day_dir, date)) = detect_common_nested_directory(ordered) {
-        return Ok(day_dir.join(format!("{}.txt", date.format("%Y-%m-%d"))));
+        return Ok(day_dir.join(format!("{}.txt", date.format(DATE_FORMAT_DASHED))));
     }
 
     let mut selected_date: Option<NaiveDate> = None;
@@ -315,7 +326,7 @@ fn determine_output_path(
             .and_then(|path| path.parent())
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| PathBuf::from("."));
-        return Ok(base_dir.join(format!("{}.txt", date.format("%Y-%m-%d"))));
+        return Ok(base_dir.join(format!("{}.txt", date.format(DATE_FORMAT_DASHED))));
     }
 
     Err(MergeError::UndeterminedDate)
@@ -392,7 +403,7 @@ mod tests {
             output: None,
             no_delete: false,
         };
-        let outcome = MergeService.execute(&request).unwrap();
+        let outcome = execute(&request).unwrap();
         assert_eq!(outcome.files.len(), 2);
         assert!(
             outcome.files[0].ends_with("061901-111901.txt"),
@@ -428,7 +439,7 @@ mod tests {
             output: None,
             no_delete: false,
         };
-        let outcome = MergeService.execute(&request).unwrap();
+        let outcome = execute(&request).unwrap();
         assert_eq!(outcome.files.len(), 2);
         assert!(
             outcome.files[0].ends_with("20250127_061901_111901.txt"),
@@ -489,7 +500,7 @@ mod tests {
             output: Some(output_file.clone()),
             no_delete: false,
         };
-        let outcome = MergeService.execute(&request).unwrap();
+        let outcome = execute(&request).unwrap();
 
         // Source files should be deleted
         assert!(!file1.exists());
@@ -522,7 +533,7 @@ mod tests {
             output: None,
             no_delete: false,
         };
-        let result = MergeService.execute(&request);
+        let result = execute(&request);
         assert!(matches!(result, Err(MergeError::UnrecognizedFilename(_))));
     }
 }

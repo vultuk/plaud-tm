@@ -1,3 +1,4 @@
+use crate::constants::TIME_FORMAT;
 use chrono::{NaiveDate, NaiveTime};
 use clap::{value_parser, Args, Parser, Subcommand};
 use std::path::PathBuf;
@@ -56,6 +57,6 @@ pub struct MergeArgs {
 }
 
 fn parse_hms(value: &str) -> Result<NaiveTime, String> {
-    NaiveTime::parse_from_str(value, "%H:%M:%S")
+    NaiveTime::parse_from_str(value, TIME_FORMAT)
         .map_err(|_| format!("Invalid time '{value}'. Use HH:MM:SS (e.g. 18:06:13)."))
 }

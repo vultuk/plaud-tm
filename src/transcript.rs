@@ -1,3 +1,4 @@
+use crate::constants::TIME_FORMAT;
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -5,6 +6,8 @@ pub struct TranscriptUpdate {
     pub body: String,
     pub first_timestamp: NaiveDateTime,
     pub last_timestamp: NaiveDateTime,
+    /// True if timestamps were found out of chronological order
+    pub has_out_of_order_timestamps: bool,
 }
 
 #[derive(Debug)]
@@ -35,6 +38,8 @@ impl TranscriptProcessor {
         let mut adjusted_lines = Vec::new();
         let mut first_timestamp: Option<NaiveDateTime> = None;
         let mut last_timestamp: Option<NaiveDateTime> = None;
+        let mut previous_timestamp: Option<NaiveDateTime> = None;
+        let mut has_out_of_order = false;
 
         for line in contents.lines() {
             if let Some((relative_time, rest)) = parse_timestamp_line(line) {
@@ -42,8 +47,17 @@ impl TranscriptProcessor {
                 if first_timestamp.is_none() {
                     first_timestamp = Some(adjusted);
                 }
+
+                // Check for out-of-order timestamps
+                if let Some(prev) = previous_timestamp {
+                    if adjusted < prev {
+                        has_out_of_order = true;
+                    }
+                }
+                previous_timestamp = Some(adjusted);
+
                 last_timestamp = Some(adjusted);
-                adjusted_lines.push(format!("{}{}", adjusted.time().format("%H:%M:%S"), rest));
+                adjusted_lines.push(format!("{}{}", adjusted.time().format(TIME_FORMAT), rest));
             } else {
                 adjusted_lines.push(line.to_string());
             }
@@ -61,6 +75,7 @@ impl TranscriptProcessor {
             body,
             first_timestamp,
             last_timestamp,
+            has_out_of_order_timestamps: has_out_of_order,
         })
     }
 }
@@ -73,7 +88,7 @@ fn parse_timestamp_line(line: &str) -> Option<(NaiveTime, &str)> {
         return None;
     }
     let (timestamp_part, rest) = line.split_at(8);
-    let time = NaiveTime::parse_from_str(timestamp_part, "%H:%M:%S").ok()?;
+    let time = NaiveTime::parse_from_str(timestamp_part, TIME_FORMAT).ok()?;
     Some((time, rest))
 }
 
@@ -194,5 +209,36 @@ Line without timestamp
         // The body should have the correct times
         assert!(result.body.contains("23:30:01 Start"));
         assert!(result.body.contains("00:30:00 One hour later"));
+    }
+
+    #[test]
+    fn detects_out_of_order_timestamps() {
+        // Timestamps go backward: 00:00:05 then 00:00:02
+        let input = "00:00:05 Later\n00:00:02 Earlier\n";
+        let result = TranscriptProcessor::adjust(
+            input,
+            base_time(),
+            NaiveDate::from_ymd_opt(2024, 12, 25).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            result.has_out_of_order_timestamps,
+            "should detect out-of-order timestamps"
+        );
+    }
+
+    #[test]
+    fn in_order_timestamps_not_flagged() {
+        let input = "00:00:01 First\n00:00:03 Second\n00:00:05 Third\n";
+        let result = TranscriptProcessor::adjust(
+            input,
+            base_time(),
+            NaiveDate::from_ymd_opt(2024, 12, 25).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            !result.has_out_of_order_timestamps,
+            "should not flag in-order timestamps"
+        );
     }
 }
