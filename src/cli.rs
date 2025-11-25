@@ -1,3 +1,4 @@
+use crate::constants::TIME_FORMAT;
 use chrono::{NaiveDate, NaiveTime};
 use clap::{value_parser, Args, Parser, Subcommand};
 use std::path::PathBuf;
@@ -5,12 +6,8 @@ use std::path::PathBuf;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
-    /// Optional name to greet when no subcommand is used.
-    #[arg(short, long)]
-    pub name: Option<String>,
-
     #[command(subcommand)]
-    pub command: Option<Commands>,
+    pub command: Commands,
 }
 
 #[derive(Subcommand, Debug)]
@@ -60,6 +57,6 @@ pub struct MergeArgs {
 }
 
 fn parse_hms(value: &str) -> Result<NaiveTime, String> {
-    NaiveTime::parse_from_str(value, "%H:%M:%S")
+    NaiveTime::parse_from_str(value, TIME_FORMAT)
         .map_err(|_| format!("Invalid time '{value}'. Use HH:MM:SS (e.g. 18:06:13)."))
 }

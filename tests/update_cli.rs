@@ -21,7 +21,7 @@ fn writes_nested_output_by_default() {
     let input = temp.child("input.txt");
     input.write_str(SAMPLE_TRANSCRIPT).expect("write input");
 
-    let mut cmd = cargo_bin_cmd!("plaud-timestamp");
+    let mut cmd = cargo_bin_cmd!("plaud-tm");
     cmd.current_dir(temp.path());
     cmd.args([
         "update",
@@ -48,7 +48,7 @@ fn supports_flat_output() {
     let input = temp.child("input.txt");
     input.write_str(SAMPLE_TRANSCRIPT).expect("write input");
 
-    let mut cmd = cargo_bin_cmd!("plaud-timestamp");
+    let mut cmd = cargo_bin_cmd!("plaud-tm");
     cmd.current_dir(temp.path());
     cmd.args([
         "update",
