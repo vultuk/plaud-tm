@@ -1,6 +1,6 @@
 # AGENT HANDBOOK
 
-This project is a Rust CLI that rewrites timestamped transcripts. Agentic
+This project is a TypeScript CLI that rewrites timestamped transcripts. Agentic
 collaborators should use this guide to quickly understand structure, coding
 standards, and operational routines.
 
@@ -8,26 +8,32 @@ standards, and operational routines.
 
 ## 1. Command Interface
 
-Run the CLI via Cargo. The key subcommands are `update` and `merge`.
+Run the CLI via npm/npx. The key subcommands are `update` and `merge`.
 
 ```bash
+# Install globally
+npm install -g plaud-tm
+
+# Or run directly with npx
+npx plaud-tm update test.txt --time 18:01:12 --date 2024-12-25
+
 # Default nested output
-cargo run -- update test.txt --time 18:01:12 --date 2024-12-25
+plaud-tm update test.txt --time 18:01:12 --date 2024-12-25
 
 # Flat output in the current directory
-cargo run -- update test.txt --time 18:01:12 --date 2024-12-25 --flat
+plaud-tm update test.txt --time 18:01:12 --date 2024-12-25 --flat
 
 # Custom root output directory
-cargo run -- update test.txt --time 18:01:12 --date 2024-12-25 --output-dir logs
+plaud-tm update test.txt --time 18:01:12 --date 2024-12-25 --output-dir logs
 
 # Merge segments (explicit list)
-cargo run -- merge 2025/01/27/061901-111901.txt 2025/01/27/112256-162256.txt
+plaud-tm merge 2025/01/27/061901-111901.txt 2025/01/27/112256-162256.txt
 
 # Merge segments (glob expansion handled inside the CLI)
-cargo run -- merge 2025/01/27/*
+plaud-tm merge "2025/01/27/*"
 
 # Merge segments into a user-selected file and keep originals
-cargo run -- merge 2025/01/27/* --output merged.txt --no-delete
+plaud-tm merge "2025/01/27/*" --output merged.txt --no-delete
 ```
 
 `update` argument semantics:
@@ -37,8 +43,8 @@ cargo run -- merge 2025/01/27/* --output merged.txt --no-delete
 | `FILE` (positional) | Yes      | Transcript with `HH:MM:SS <text>` lines.                             |
 | `--time`            | Yes      | Start time (`HH:MM:SS`) that anchors relative offsets.               |
 | `--date`            | Yes      | Effective date (`YYYY-MM-DD`), used in the output file name.         |
-| `--output-dir`      | No       | Root folder for nested output. Defaults to `output`.                 |
-| `--flat`            | No       | When set, ignore `--output-dir` and emit `YYYYMMDD_HHMMSS_*.txt` beside the binary. |
+| `--output-dir`      | No       | Root folder for nested output. Defaults to current directory.        |
+| `--flat`            | No       | When set, emit `YYYYMMDD_HHMMSS_*.txt` in current working directory. |
 
 Output naming:
 
@@ -64,99 +70,107 @@ and writes the combined transcript to disk:
 
 ```
 src/
-├── main.rs         # Thin entry point calling plaud_timestamp::run()
-├── lib.rs          # App orchestration and error mapping
-├── cli.rs          # clap definitions, parsing & validation
-├── merge.rs        # Merge command orchestration + glob expansion
-├── transcript.rs   # Pure transcript transformation logic
-└── update.rs       # Use-case orchestration & filesystem interactions
+├── index.ts        # CLI entry point with shebang
+├── cli.ts          # Commander.js definitions, parsing & validation
+├── constants.ts    # Centralized configuration constants
+├── merge.ts        # Merge command orchestration + glob expansion
+├── transcript.ts   # Pure transcript transformation logic
+└── update.ts       # Update command orchestration & filesystem interactions
 tests/
-├── merge_cli.rs    # Integration test for `merge`
-└── update_cli.rs   # Integration tests for `update`
+├── cli.test.ts     # Integration tests for CLI
+├── merge.test.ts   # Tests for merge command
+├── transcript.test.ts  # Tests for transcript transformation
+└── update.test.ts  # Tests for update command
 ```
 
-### `cli.rs`
-Defines `Cli`, `Commands`, and `UpdateArgs`. Uses clap validators to parse `NaiveDate`
-and `NaiveTime`, enforcing input shape at the boundary.
+### `cli.ts`
+Defines CLI commands using Commander.js with custom validators for `Time` and `DateOnly` types.
 
-### `transcript.rs`
-`TranscriptProcessor::adjust()` is pure & deterministic:
+### `transcript.ts`
+`adjustTranscript()` is pure & deterministic:
 
 1. Parse `HH:MM:SS` prefixes.
 2. Shift by the base time/date.
 3. Preserve non-timestamp lines and trailing newline presence.
-4. Return `TranscriptUpdate { body, first_timestamp, last_timestamp }`.
+4. Return `TranscriptUpdate { body, firstTimestamp, lastTimestamp, hasOutOfOrderTimestamps }`.
 
-Errors surface as `TranscriptError::NoTimestamps`.
+Errors surface as `NoTimestampsError`.
 
-### `update.rs`
-`UpdateService` wires IO to the pure logic:
+### `update.ts`
+`executeUpdate()` wires IO to the pure logic:
 
 - Reads the source file.
-- Invokes `TranscriptProcessor`.
-- Chooses a filename via `resolve_output_path()` based on `flatten_output`.
-- Writes the new transcript and returns `UpdateOutcome`.
+- Invokes `adjustTranscript()`.
+- Chooses a filename via `resolveOutputPath()` based on `flattenOutput`.
+- Writes the new transcript atomically and returns `UpdateOutcome`.
 
-`UpdateRequest` can be constructed in tests or other tooling without touching clap.
+`UpdateRequest` can be constructed in tests or other tooling without touching the CLI.
 
-### `merge.rs`
-`MergeService` handles:
+### `merge.ts`
+`executeMerge()` handles:
 
-- Expanding file & glob patterns (using the `glob` crate).
+- Expanding file & glob patterns (using the `glob` package).
 - Inferring chronological sort keys from filenames (supports nested, flat, and mixed layouts).
 - Deduplicating overlaps and writing the merged transcript to disk using either
   the inferred date-specific location or an explicit `--output`.
 
 It returns the ordered list and the final output path so the CLI can report both.
 
-### `lib.rs`
-Parses CLI arguments, dispatches to the update service, and prints the resulting path.
-The library exposes `run()` so other binaries or tests can reuse the workflow.
+### `index.ts`
+Entry point that parses CLI arguments, dispatches to the appropriate command handler, and prints results.
 
 ---
 
 ## 3. Development Workflow
 
-1. **Formatting & linting**  
+1. **Install dependencies**
    ```bash
-   source "$HOME/.cargo/env"
-   cargo fmt
-   cargo clippy --all-targets --all-features
+   npm install
    ```
 
-2. **Test suite**  
+2. **Build**
    ```bash
-   cargo test
+   npm run build
    ```
-   - Unit tests live alongside source modules (e.g., `transcript.rs`, `update.rs`).
-   - Integration tests live in `tests/` and leverage `assert_cmd` + `assert_fs`.
 
-3. **Adding features**  
-   - Touch CLI args in `cli.rs`.
-   - Extend `UpdateRequest`/`UpdateService` for new behaviours.
+3. **Run tests**
+   ```bash
+   npm test
+   ```
+   - Unit tests and integration tests are in `tests/` using Vitest.
+   - Run with coverage: `npm run test:coverage`
+
+4. **Run the CLI locally**
+   ```bash
+   node dist/index.js update test.txt --time 18:01:12 --date 2024-12-25
+   ```
+
+5. **Adding features**
+   - Touch CLI args in `cli.ts`.
+   - Extend `UpdateRequest`/`executeUpdate()` for new behaviours.
    - Keep transcript adjustments pure; add unit tests for edge cases.
-   - Update integration tests when observable CLI behaviour changes.
+   - Update tests when observable CLI behaviour changes.
 
-4. **Error handling**  
-   - Use `thiserror` to enrich domain errors.
+6. **Error handling**
+   - Use custom error classes extending `Error`.
    - Surface recoverable issues as user-friendly messages (e.g., parse failures, IO).
 
-5. **File IO**  
-   - Always respect `output_dir`/`--flat` semantics.
-   - Create directories proactively (`fs::create_dir_all`).
+7. **File IO**
+   - Always respect `outputDir`/`--flat` semantics.
+   - Create directories proactively (`fs.mkdirSync` with `recursive: true`).
+   - Use atomic writes (temp file + rename) to prevent corruption.
    - Preserve newline endings in transformed transcripts.
 
 ---
 
 ## 4. Testing Strategy
 
-| Layer       | Location                | Purpose                                     |
-|-------------|-------------------------|---------------------------------------------|
-| Unit        | `src/transcript.rs`     | Parse & shift timestamps, newline handling. |
-| Unit        | `src/update.rs`         | Output-path decisions (flat vs nested).     |
-| Unit        | `src/merge.rs`          | Pattern expansion & chronological ordering. |
-| Integration | `tests/update_cli.rs`   | CLI argument parsing, file IO, output names.|
-| Integration | `tests/merge_cli.rs`    | CLI pattern expansion & ordering.           |
+| Layer       | Location                 | Purpose                                     |
+|-------------|--------------------------|---------------------------------------------|
+| Unit        | `tests/transcript.test.ts` | Parse & shift timestamps, newline handling.|
+| Unit        | `tests/update.test.ts`    | Output-path decisions (flat vs nested).    |
+| Unit        | `tests/merge.test.ts`     | Pattern expansion & chronological ordering.|
+| Integration | `tests/cli.test.ts`       | CLI argument parsing, file IO, output names.|
 
 Agents should add regression tests when modifying parsing, time handling, or IO.
 
@@ -164,30 +178,33 @@ Agents should add regression tests when modifying parsing, time handling, or IO.
 
 ## 5. Extension Tips
 
-- Need more commands? Add variants to `Commands` in `cli.rs` and match them in `run()`.
-- Want pluggable IO? Introduce traits in `update.rs` so services can be mocked.
-- Large transcripts? Consider streaming transforms or memory-mapped IO (future work).
+- Need more commands? Add new command definitions in `cli.ts` and handlers in `index.ts`.
+- Want pluggable IO? Introduce interfaces so services can be mocked in tests.
+- Large transcripts? Consider streaming transforms (future work).
 
-Keep the codebase SOLID/DRY by:
+Keep the codebase clean by:
 
-- Isolating pure logic (`transcript.rs`) from side effects (`update.rs`).
-- Passing dependencies via structs instead of global state.
-- Reusing helper functions (e.g., `resolve_output_path`) instead of duplicating logic.
+- Isolating pure logic (`transcript.ts`) from side effects (`update.ts`).
+- Passing dependencies via parameters instead of global state.
+- Reusing helper functions instead of duplicating logic.
 
 ---
 
 ## 6. Quick Reference
 
-| Action                    | Command                                      |
-|--------------------------|----------------------------------------------|
-| Format code              | `cargo fmt`                                  |
-| Run unit + integration   | `cargo test`                                 |
-| Execute CLI              | `cargo run -- update …`                      |
-| Flat output              | `cargo run -- update … --flat`               |
-| Custom output directory  | `cargo run -- update … --output-dir logs`    |
-| Merge transcripts        | `cargo run -- merge YYYY/MM/DD/*`            |
-| Force merge destination  | `cargo run -- merge … --output merged.txt`   |
-| Preserve source segments | `cargo run -- merge … --no-delete`           |
+| Action                    | Command                                           |
+|--------------------------|---------------------------------------------------|
+| Install dependencies     | `npm install`                                     |
+| Build                    | `npm run build`                                   |
+| Run tests                | `npm test`                                        |
+| Run with coverage        | `npm run test:coverage`                           |
+| Execute CLI              | `node dist/index.js update …`                     |
+| Execute via npx          | `npx plaud-tm update …`                           |
+| Flat output              | `plaud-tm update … --flat`                        |
+| Custom output directory  | `plaud-tm update … --output-dir logs`             |
+| Merge transcripts        | `plaud-tm merge "YYYY/MM/DD/*"`                   |
+| Force merge destination  | `plaud-tm merge … --output merged.txt`            |
+| Preserve source segments | `plaud-tm merge … --no-delete`                    |
 
 This handbook should make it trivial for autonomous agents to navigate, extend,
 and test the Plaud Timestamp CLI. Keep it updated as the system evolves.

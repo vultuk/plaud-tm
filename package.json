@@ -1,13 +1,43 @@
 {
   "name": "plaud-tm",
-  "version": "0.0.0",
-  "description": "Node launcher for the plaud-timestamp Rust CLI",
+  "version": "0.1.0",
+  "description": "A CLI tool that rewrites timestamped transcripts by adjusting timestamps and merging multiple transcript segments in chronological order",
+  "main": "dist/index.js",
   "bin": {
-    "plaud-tm": "./index.js"
+    "plaud-tm": "./dist/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run build"
   },
   "files": [
-    "bin",
-    "index.js"
+    "dist"
   ],
-  "license": "UNLICENSED"
+  "keywords": [
+    "transcript",
+    "timestamp",
+    "cli",
+    "merge",
+    "plaud"
+  ],
+  "author": "vultuk <vultuk@example.com>",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "commander": "^12.1.0",
+    "glob": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^2.1.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }
