@@ -1,2 +1,44 @@
-target/
-**/*.rs.bk
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Test output
+coverage/
+
+# Environment files
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test files (generated during testing)
+test-transcript.txt
+test-sample.txt
+2024/
+2025/
+
+# Temporary files
+*.tmp
+.tmp-*
+
+# Bun
+bun.lockb
+
+.claude/settings.local.json
